@@ -15,6 +15,8 @@ namespace Jelly
         SpriteBatch spriteBatch;
         MouseState oldMouse;
 
+        public static Viewport Screen { get; private set; }
+
         public MainGame()
         {
             graphics = new GraphicsDeviceManager(this);
@@ -31,7 +33,8 @@ namespace Jelly
         protected override void Initialize()
         {
             Viewport screen = graphics.GraphicsDevice.Viewport;
-            _jelly = new Jelly(new Vector2(screen.Width / 2, screen.Height / 2), 100);
+            _jelly = new Jelly(new Vector2(screen.Width / 2, 0), 100, 5);
+            _jelly.Floor = new Rectangle(0, (int)(screen.Height * 0.75f), screen.Width, (int)(screen.Height * 0.25f));
             oldMouse = Mouse.GetState();
             base.Initialize();
         }
@@ -42,6 +45,8 @@ namespace Jelly
         /// </summary>
         protected override void LoadContent()
         {
+            Screen = GraphicsDevice.Viewport;
+            spriteBatch = new SpriteBatch(GraphicsDevice);
             _primitiveBatch = new PrimitiveBatch(GraphicsDevice);
         }
 
@@ -88,6 +93,10 @@ namespace Jelly
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.Black);
+
+            spriteBatch.Begin();
+            spriteBatch.DrawRectangle(_jelly.Floor, Color.Red);
+            spriteBatch.End();
 
             _primitiveBatch.Begin(PrimitiveType.TriangleList);
             _jelly.Draw(_primitiveBatch, gameTime);

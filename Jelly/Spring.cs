@@ -1,6 +1,6 @@
 ﻿namespace Jelly
 {
-    public struct Spring
+    public class Spring
     {
         #region Propriétés
         /// <summary>

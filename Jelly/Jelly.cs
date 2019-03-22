@@ -1,21 +1,33 @@
 ﻿using System;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace Jelly
 {
+    public class JellySpring : Spring
+    {
+        public bool Collide { get; set; }
+    }
+    
     public class Jelly
     {
+        #region Constantes
+        private const float GRAVITY = 0.8f;
+        private const float GRAVITY_MAX = 9f;
+        #endregion
+
         #region Variables privées
         private int _radius;
         private float _tension;
         private float _dampening;
+        private bool _collide;
         #endregion
 
         #region Propriétés
-        public float Layer { get; set; } = 1f;
-        public Spring[] Springs { get; private set; }
-        public bool Remove { get; set; }
+        public Rectangle Floor { get; set; }
+        public JellySpring[] Springs { get; private set; }
         public Vector2 Position { get; set; }
+        public Vector2 Velocity { get; set; }
         public int DeltaDegrees { get; set; }
         public int Radius
         {
@@ -25,7 +37,7 @@ namespace Jelly
                 _radius = value;
                 for (int i = 0; i < Springs.Length; i++)
                 {
-                    ref Spring s = ref Springs[i];
+                    ref JellySpring s = ref Springs[i];
                     s.TargetValue = value;
                     if (s.Value == 0)
                         s.Value = s.TargetValue;
@@ -41,7 +53,7 @@ namespace Jelly
                 _tension = value;
                 for (int i = 0; i < Springs.Length; i++)
                 {
-                    ref Spring s = ref Springs[i];
+                    ref JellySpring s = ref Springs[i];
                     s.Tension = value;
                 }
             }
@@ -54,7 +66,7 @@ namespace Jelly
                 _dampening = value;
                 for (int i = 0; i < Springs.Length; i++)
                 {
-                    ref Spring s = ref Springs[i];
+                    ref JellySpring s = ref Springs[i];
                     s.Dampening = value;
                 }
             }
@@ -66,11 +78,15 @@ namespace Jelly
         {
             DeltaDegrees = pDeltaDegrees;
             int numberOfSprings = (int)360 / pDeltaDegrees;
-            Springs = new Spring[numberOfSprings];
+            Springs = new JellySpring[numberOfSprings];
+            for (int i = 0; i < Springs.Length; i++)
+            {
+                Springs[i] = new JellySpring();
+            }
             Position = pPosition;
             Radius = pRadius;
-            Tension = 0.001f;
-            Dampening = 0.015f;
+            Tension = 0.0001f;
+            Dampening = 0.025f;
         }
         #endregion
 
@@ -81,21 +97,38 @@ namespace Jelly
             float dist = (float)Math.Sqrt(Math.Pow(d.X, 2) + Math.Pow(d.Y, 2));
             if (dist < Radius)
             {
-                float force = dist - Radius;
+                float force = - dist / Radius;
                 float angle = MathHelper.ToDegrees((float)Math.Atan2(d.Y, d.X));
                 int index = ((int)Math.Round((angle / DeltaDegrees)) + Springs.Length) % Springs.Length;
                 Springs[index].Velocity = force;
             }
+        }
+
+        private void Splash(JellySpring pSpring)
+        {
+            pSpring.Velocity = Velocity.Y;
         }
         #endregion
 
         #region Update
         public void Update(GameTime gameTime)
         {
+            #region Application de la gravité
+            float vx = Velocity.X;
+            float vy = Velocity.Y;
+
+            if (_collide)
+            {
+                vy = 0;
+            }
+            vy += GRAVITY;
+            vy = MathHelper.Clamp(vy, 0, GRAVITY_MAX);
+            #endregion
+
             #region Update des ressorts
             for (int i = 0; i < Springs.Length; i++)
             {
-                ref Spring s = ref Springs[i];
+                ref JellySpring s = ref Springs[i];
                 s.Update();
             }
             #endregion
@@ -105,9 +138,9 @@ namespace Jelly
             float[] rightDeltas = new float[Springs.Length];
             for (int i = 0; i < Springs.Length; i++)
             {
-                ref Spring s0 = ref Springs[(i - 1 + Springs.Length) % Springs.Length];
-                ref Spring s1 = ref Springs[i];
-                ref Spring s2 = ref Springs[(i + 1) % Springs.Length];
+                ref JellySpring s0 = ref Springs[(i - 1 + Springs.Length) % Springs.Length];
+                ref JellySpring s1 = ref Springs[i];
+                ref JellySpring s2 = ref Springs[(i + 1) % Springs.Length];
                 leftDeltas[i] = Spread * (s1.Value - s0.Value);
                 s0.Velocity += leftDeltas[i];
                 rightDeltas[i] = Spread * (s1.Value - s2.Value);
@@ -116,12 +149,49 @@ namespace Jelly
 
             for (int i = 1; i < Springs.Length - 1; i++)
             {
-                ref Spring s0 = ref Springs[i - 1];
-                ref Spring s2 = ref Springs[i + 1];
+                ref JellySpring s0 = ref Springs[i - 1];
+                ref JellySpring s2 = ref Springs[i + 1];
                 s0.Value += leftDeltas[i];
                 s2.Value += rightDeltas[i];
             }
+
+
+            ///////////////////////
+            _collide = false;
+            float vyMin = vy;
+            for (int i = 0; i < Springs.Length; i++)
+            {
+                ref JellySpring s = ref Springs[i];
+                float prevValue = s.Value;
+                //s.Update();
+                float angle = MathHelper.ToRadians(i * DeltaDegrees);
+                Vector2 p = new Vector2(s.Value * (float)Math.Cos(angle), s.Value * (float)Math.Sin(angle));
+                if (Floor.Contains(Position + p))
+                {
+                    if (!s.Collide)
+                    {
+                        Splash(s);
+                        s.Collide = true;
+                    }
+                    else
+                    {
+                        float delta = Math.Abs(s.Value - prevValue);
+                        if (vyMin < delta)
+                            vyMin = delta * (float)Math.Sin(angle);
+                    }
+                    _collide = true;
+                }
+                else
+                {
+                    s.Collide = false;
+                }
+            }
+            if (_collide)
+                vy -= vyMin;
             #endregion
+
+            Velocity = new Vector2(vx, vy);
+            Position += Velocity;
         }
         #endregion
 

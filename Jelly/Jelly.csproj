@@ -42,6 +42,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="MainGame.cs" />
+    <Compile Include="Primitive2D.cs" />
     <Compile Include="PrimitiveBatch.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
